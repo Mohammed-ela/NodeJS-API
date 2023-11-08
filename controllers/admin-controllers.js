@@ -1,10 +1,11 @@
 
 const User = require('../model/user')
-const user = require('../model/user')
+
 
 const mailPattern =
   /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
 
+const passwordPattern =''
 
 module.exports = {
 
@@ -32,8 +33,11 @@ module.exports = {
     next()
 },
     checkPasswordPayload : (req,res,next) => {
-
-    next()
+        const {password}=req
+        if (!passwordPattern.test(password)) 
+            return res.status(400).json({message:"Veuillez ameliorer le mdp"})
+    
+        next()
 },
 signupResponse:async(req,res) => {
     try{
@@ -56,12 +60,12 @@ signupResponse:async(req,res) => {
         res.status(201).json({message:'tout va bien'})        
         }catch (error){
             let status = 500
-
+            let message ='Unecpected error';
             if (error.message === 'Existing user') status = 400
             console.log('---------------');
             console.error(
                 new Date().toISOString,
-                'controllers/admin-controllers.js > signupResponse > error '.error
+                'controllers/admin-controllers.js > signupResponse > error ',error
                 )
             return res.status(status).json({message})
 

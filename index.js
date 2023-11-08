@@ -1,13 +1,13 @@
 require('dotenv').config()
 
-const { PORT, MONGODB_USER, MONGODB_PASSWORD } = process.env
+const { PORT, MONGODB_USER, MONGODB_PASSWORD, MONGODB_CLUSTER } = process.env
 
 const express = require('express')
 const app = express()
 
 const mongoose = require('mongoose') // si ya pas de chemin ca sera dans le node modules
 
-mongoose.connect(`mongodb+srv://${MONGODB_USER}:${MONGODB_PASSWORD}@cluster0.ilj2daj.mongodb.net/?retryWrites=true&w=majority`)
+mongoose.connect(`mongodb+srv://${MONGODB_USER}:${MONGODB_PASSWORD}@${MONGODB_CLUSTER}.mongodb.net/?retryWrites=true&w=majority`)
 const adminRouter = require('./routers/admin-router').router
 
 const db = mongoose.connection
