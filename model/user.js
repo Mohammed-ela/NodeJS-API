@@ -1,87 +1,52 @@
-const mongoose = require('mongoose')
+const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-const crypto = require('crypto')
-const jwt = require('jsonwebtoken')
-const userSchema = new Schema (
-    {
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
-        email: {
-            type: String,
-            unique: true,
-            required: [true,'Please add an email'],
-        },
-        // password: {
-        //     type: String,
-        //     unique: false,
-        //     required: [true,'add ur password'],
-        // },
-        ingredients: {
-            // type : [IgredientSchema]
-            type: [String],
-            
-        },
-        salt: {
-         
-            type: [String],
-            
-        },
-        hash: {
-           
-            type: [String],
-            
-        },
-
+const userSchema = new Schema(
+  {
+    email: {
+      type: String,
+      unique: true,
+      required: [true, 'Please add an email'],
     },
-
-{collection:'users'}
-)
-
-
-
-const User = mongoose.model('User',userSchema)
-
-module.exports =  User
-
-//3 methodes
+    ingredients: {
+      type: [String],
+    },
+    salt: {
+      type: String,
+    },
+    hash: {
+      type: String,
+    },
+  },
+  { collection: 'users' }
+);
 
 userSchema.methods.setPassword = function (password) {
+  this.salt = crypto.randomBytes(16).toString('hex');
+  this.hash = crypto
+    .pbkdf2Sync(password, this.salt, 1000, 64, 'sha512')
+    .toString('hex');
+};
 
-    this.salt = crypto.randomBytes(16).toString('hex')
-  
-    this.hash = crypto
-  
-      .pbkdf2Sync(password, this.salt, 1000, 64, 'sha512')
-  
-      .toString('hex')
-  
-  }
+userSchema.methods.passwordIsValid = function (password) {
+  const generateHash = crypto
+    .pbkdf2Sync(password, this.salt, 1000, 64, 'sha512')
+    .toString('hex');
 
-  userSchema.methods.passwordIsValid = function (password) {
+  return this.hash === generateHash;
+};
 
-    const generateHash = crypto
-  
-      .pbkdf2Sync(password, this.salt, 1000, 64, 'sha512')
-  
-      .toString('hex')
-  
-  
-  
-    return this.hash === generateHash
-  
-  }
+userSchema.methods.generateJWT = function () {
+  return jwt.sign(
+    {
+      _id: this._id,
+    },
+    process.env.JWT_SECRET || 'your_default_secret'
+  );
+};
 
-  userSchema.methods.generateJWT = function () {
+const User = mongoose.model('User', userSchema);
 
-    return jwt.sign(
-  
-      {
-  
-        _id: this._id,
-  
-      },
-  
-      JWT_SECRET
-  
-    )
-  
-  }
+module.exports = User;

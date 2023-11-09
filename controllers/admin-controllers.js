@@ -1,74 +1,89 @@
+const User = require('../model/user');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
-const User = require('../model/user')
-
-
-const mailPattern =
-  /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-
-const passwordPattern =/^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/
+const mailPattern = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+const passwordPattern = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/;
 
 module.exports = {
+    checkAuthPayload: (req, res, next) => {
+        const { email, password } = req.body;
 
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Adresse e-mail ou mot de passe manquant' });
+        }
 
-    checkAuthPayload : (req,res,next)=>{
-    //recuperer l'email et mdp dans le body de la requete 
-    const{email, password}=req.body
+        req.email = email;
+        req.password = password;
+        next();
+    },
 
-    if(!email||!password){
+    checkEmailPayload: (req, res, next) => {
+        const { email } = req;
 
-        return res.status(400).json({message:'missing email or password'})
-    }
-    req.email = email
-    req.password = password
-    // sinon passer au middleware suivant 
-    next()
+        if (!mailPattern.test(email)) {
+            return res.status(400).json({ message: 'Format d\'e-mail invalide' });
+        }
 
-},
+        next();
+    },
 
-    checkEmailPayload : (req,res,next) => {
-    const {email}=req
-    if (!mailPattern.test(email)) 
-        return res.status(400).json({message:"invalid email's format"})
+    checkPasswordPayload: (req, res, next) => {
+        const { password } = req;
 
-    next()
-},
-    checkPasswordPayload : (req,res,next) => {
-        const {password}=req
-        if (!passwordPattern.test(password)) 
-            return res.status(400).json({message:"Veuillez ameliorer le mdp"})
-    
-        next()
-},
-signupResponse:async(req,res) => {
-    try{
+        if (!passwordPattern.test(password)) {
+            const errors = [];
 
-    //TODO : enregistre le new user
-        const {email,password} = req
+            if (!/(?=.*?[A-Z])/.test(password)) {
+                errors.push("Le mot de passe doit contenir au moins une lettre majuscule.");
+            }
+            if (!/(?=.*?[a-z])/.test(password)) {
+                errors.push("Le mot de passe doit contenir au moins une lettre minuscule.");
+            }
+            if (!/(?=.*?[0-9])/.test(password)) {
+                errors.push("Le mot de passe doit contenir au moins un chiffre.");
+            }
+            if (!/(?=.*?[#?!@$%^&*-])/.test(password)) {
+                errors.push("Le mot de passe doit contenir au moins un caractère spécial.");
+            }
+            if (password.length < 8) {
+                errors.push("Le mot de passe doit avoir au moins 8 caractères.");
+            }
 
-        const newUser = new User({
-            email,
-            password,
-            ingredients: [],
-        })
+            return res.status(400).json({ message: "Votre mot de passe n'est pas conforme", errors });
+        }
 
-        const savedUser = await newUser.save()
-        if(!savedUser) throw new Error("saving user error")
-        const existingUser = await User.findOne({email})
-        if (existingUser) throw new Error('Existing user')
+        next();
+    },
 
+    signupResponse: async (req, res) => {
+        try {
+            const { email, password } = req;
 
-        res.status(201).json({message:'tout va bien'})        
-        }catch (error){
-            let status = 500
-            let message ='Unecpected error';
-            if (error.message === 'Existing user') status = 400
-            console.log('---------------');
-            console.error(
-                new Date().toISOString,
-                'controllers/admin-controllers.js > signupResponse > error ',error
-                )
-            return res.status(status).json({message})
+            const newUser = new User({
+                email,
+                ingredients: [],
+            });
 
+            newUser.setPassword(password);
+
+            const savedUser = await newUser.save();
+            if (!savedUser) throw new Error("Erreur lors de l'enregistrement de l'utilisateur.");
+
+            const token = savedUser.generateJWT();
+
+            const existingUser = await User.findOne({ email });
+            if (existingUser) throw new Error('Utilisateur déjà existant.');
+
+            res.status(201).json({ message: 'Utilisateur enregistré avec succès.', token });
+        } catch (error) {
+            let status = 500;
+            let message = 'Erreur inattendue.';
+            if (error.message === 'Utilisateur déjà existant.') status = 400;
+
+            console.error(new Date().toISOString(), 'controllers/admin-controllers.js > signupResponse > error ', error);
+
+            return res.status(status).json({ message });
         }
     },
-}
+};
